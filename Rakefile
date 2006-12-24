@@ -14,7 +14,7 @@ Hoe.new 'tinderbox', Tinderbox::VERSION do |p|
   p.email = 'drbrain@segment7.net'
 
   p.extra_deps << ['ZenTest', '>= 3.4.0']
-  p.extra_deps << ['firebrigade-api', '>= 1.0.0']
+  p.extra_deps << ['firebrigade_api', '>= 1.0.0']
 end
 
 # vim: syntax=Ruby
