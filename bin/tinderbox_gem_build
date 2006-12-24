@@ -1,0 +1,14 @@
+#!/usr/local/bin/ruby -w
+
+require 'rubygems'
+require 'tinderbox/gem_runner'
+
+gem_name = ARGV.shift or raise 'Need gem name'
+gem_version = ARGV.shift or raise 'Need gem version'
+
+build = Tinderbox::GemRunner.new(gem_name, gem_version).run
+puts "build succeeded: #{build.successful}"
+puts "build duration: #{build.duration}"
+puts "build log:"
+puts build.log
+
