@@ -3,9 +3,12 @@ LICENSE.txt
 Manifest.txt
 README.txt
 Rakefile
-bin/tinderbox_build_gem
+bin/tinderbox_gem_build
+bin/tinderbox_gem_run
 lib/tinderbox.rb
 lib/tinderbox/build.rb
 lib/tinderbox/gem_runner.rb
+lib/tinderbox/gem_tinderbox.rb
 test/test_tinderbox_build.rb
 test/test_tinderbox_gem_runner.rb
+test/test_tinderbox_gem_tinderbox.rb
