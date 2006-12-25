@@ -262,7 +262,11 @@ class Tinderbox::GemRunner
       end
 
       successful = $CHILD_STATUS.exitstatus == 0
-      if log =~ / 0 assertions/ or log !~ / \d+ assertions/ then
+      if log =~ / (\d+) failures, (\d+) errors/ and
+         $1 != '0' and $2 != '0' then
+        log << "*** Project has broken test target" if successful
+        successful = false
+      elsif log =~ / 0 assertions/ or log !~ / \d+ assertions/ then
         successful = false 
         log << "*** No test output indicating success found"
       end
