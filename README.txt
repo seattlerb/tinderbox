@@ -6,23 +6,25 @@ http://seattlerb.rubyforge.org/tinderbox
 
 == DESCRIPTION:
   
-Tinderbox tests projects and tries to make them break by running them
-on as many different platforms as possible.
+Tinderbox tests projects and tries to make them break by running them on as
+many different platforms as possible.
 
 == FEATURES/PROBLEMS:
   
-* Only contains a gem runner
+* Only knows how to test gems
+* Doesn't ignore network problems when fetching gems
 
 == SYNOPSYS:
 
-  FIX (code sample of usage)
+  tinderbox_gem_run -u 'my username' -p 'my password' -s tinderbox.example.com
 
 == REQUIREMENTS:
 
-* FIX (list of requirements)
+* rubygems-0.9.1
+* firebrigade_api-1.0.0
+* Persistent connection to the internet
 
 == INSTALL:
 
 * sudo gem install tinderbox
-* FIX
 
