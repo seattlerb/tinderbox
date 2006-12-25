@@ -1,3 +1,4 @@
+$TESTING = false unless defined? $TESTING
 require 'tinderbox'
 require 'tinderbox/gem_runner'
 require 'tinderbox/build'
@@ -131,7 +132,7 @@ class Tinderbox::GemTinderbox
     @wait_time = 300
 
     @fc = Firebrigade::Cache.new @host, @username, @password
-    @target_id = @fc.get_target_id
+    @target_id = nil
   end
 
   ##
@@ -154,6 +155,9 @@ class Tinderbox::GemTinderbox
   end
 
   def run
+    @seen_gems = []
+    @target_id ||= @fc.get_target_id
+
     loop do
       new_gems.each do |spec|
         $stderr.puts "*** Checking #{spec.full_name}"
@@ -166,6 +170,16 @@ class Tinderbox::GemTinderbox
       end
 
       sleep @wait_time
+    end
+  rescue RCRest::CommunicationError => e
+    wait = Time.now + 300
+
+    $stderr.puts e.message
+    $stderr.puts "Will retry at #{wait}"
+
+    unless $TESTING then
+      sleep 300
+      retry
     end
   end
 

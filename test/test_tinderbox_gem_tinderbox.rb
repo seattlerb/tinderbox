@@ -4,6 +4,8 @@ require 'test/zentest_assertions'
 require 'rc_rest/net_http_stub'
 require 'rc_rest/uri_stub'
 
+$TESTING = true
+
 require 'tinderbox/gem_tinderbox'
 require 'tinderbox/gem_runner'
 
@@ -12,7 +14,7 @@ class Firebrigade::Cache
 end
 
 class Tinderbox::GemTinderbox
-  attr_writer :source_info_cache
+  attr_writer :source_info_cache, :target_id
   attr_reader :fc
 end
 
@@ -25,18 +27,6 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
 
     URI::HTTP.uris = []
     URI::HTTP.responses = []
-
-    Net::HTTP.responses << <<-EOF
-<ok>
-  <target>
-    <id>5</id>
-    <platform>fake platform</platform>
-    <release_date>fake release_date</release_date>
-    <username>fake username</username>
-    <version>fake version</version>
-  </target>
-</ok>
-    EOF
 
     @tgt = Tinderbox::GemTinderbox.new 'firebrigade.example.com', 'username',
                                        'password'
@@ -73,7 +63,25 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     assert_equal [], specs, 'Your rubygems needs Gem::Specification#eql?'
   end
 
+  def test_run
+    Net::HTTP.responses << proc do |req|
+      raise Errno::ECONNREFUSED, 'connect(2)'
+    end
+
+    out, err = util_capture do
+      @tgt.run
+    end
+
+    assert_equal '', out.read
+
+    err = err.read.split("\n")
+    assert_equal "Communication error: Connection refused - connect(2)(Errno::ECONNREFUSED)",
+                 err.first
+    assert_match(/Will retry at/, err.last)
+  end
+
   def test_tested_eh
+    @tgt.target_id = 5
     @tgt.fc.builds[[3, 5]] = 4
     assert_equal true, @tgt.tested?(3)
 
