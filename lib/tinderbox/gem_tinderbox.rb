@@ -185,7 +185,7 @@ class Tinderbox::GemTinderbox
 
       sleep @wait_time
     end
-  rescue RCRest::CommunicationError => e
+  rescue RCRest::CommunicationError, Gem::RemoteFetcher::FetchError => e
     wait = Time.now + 300
 
     $stderr.puts e.message

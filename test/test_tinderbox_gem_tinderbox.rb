@@ -63,21 +63,32 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     assert_equal [], specs, 'Your rubygems needs Gem::Specification#eql?'
   end
 
-  def test_run
+  def test_run_communication_error
     Net::HTTP.responses << proc do |req|
       raise Errno::ECONNREFUSED, 'connect(2)'
     end
 
-    out, err = util_capture do
-      @tgt.run
-    end
+    util_test_run_error "Communication error: Connection refused - connect(2)(Errno::ECONNREFUSED)"
+  end
 
-    assert_equal '', out.read
+  def test_run_fetch_error
+    Net::HTTP.responses << <<-EOF
+<ok>
+  <target>
+    <id>5</id>
+    <platform>fake platform</platform>
+    <release_date>fake release_date</release_date>
+    <username>fake username</username>
+    <version>fake version</version>
+  </target>
+</ok>
+    EOF
 
-    err = err.read.split("\n")
-    assert_equal "Communication error: Connection refused - connect(2)(Errno::ECONNREFUSED)",
-                 err.first
-    assert_match(/Will retry at/, err.last)
+    o = Object.new
+    def o.refresh() raise Gem::RemoteFetcher::FetchError end
+    @tgt.instance_variable_set :@source_info_cache, o
+
+    util_test_run_error "Gem::RemoteFetcher::FetchError"
   end
 
   def test_tested_eh
@@ -104,6 +115,18 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     @tgt.update_gems
 
     assert_equal true, o.refreshed?
+  end
+
+  def util_test_run_error(message)
+    out, err = util_capture do
+      @tgt.run
+    end
+
+    assert_equal '', out.read
+
+    err = err.read.split "\n"
+    assert_equal message, err.first
+    assert_match(/Will retry at/, err.last)
   end
 
 end
