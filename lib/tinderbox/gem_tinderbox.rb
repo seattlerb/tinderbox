@@ -15,6 +15,8 @@ class Tinderbox::GemTinderbox
 
   attr_accessor :root
 
+  attr_accessor :timeout
+
   def self.process_args(args)
     opts_file = File.expand_path '~/.gem_tinderbox'
     options = {}
@@ -23,11 +25,13 @@ class Tinderbox::GemTinderbox
       File.readlines(opts_file).map { |l| l.chomp.split '=', 2 }.each do |k,v|
         v = true  if v == 'true'
         v = false if v == 'false'
+        v = Integer(v) if k == 'Timeout'
         options[k.intern] = v
       end
     end
 
     options[:Daemon] ||= false
+    options[:Timeout] ||= 120
 
     opts = OptionParser.new do |opts|
       opts.banner = "Usage: #{File.basename $0} [options]"
@@ -64,6 +68,14 @@ class Tinderbox::GemTinderbox
       end
 
       opts.separator ''
+
+      opts.on("-t", "--timeout TIMEOUT",
+              "Maximum time to wait for a gem's tests to",
+              "finish",
+              "Default: #{options[:Timeout]}",
+              Numeric) do |timeout|
+        options[:Timeout] = timeout
+      end
 
       opts.on("-r", "--root ROOT",
               "Root directory for gem tinderbox",
@@ -106,6 +118,7 @@ class Tinderbox::GemTinderbox
 
     tinderbox = new options[:Server], options[:Username], options[:Password]
     tinderbox.root = options[:Root]
+    tinderbox.timeout = options[:Timeout]
 
     if options[:Daemon] then
       require 'webrick/server'
@@ -126,6 +139,7 @@ class Tinderbox::GemTinderbox
     @username = username
     @password = password
     @root = nil
+    @timeout = 120
 
     @source_info_cache = nil 
     @seen_gems = []
@@ -196,6 +210,7 @@ class Tinderbox::GemTinderbox
 
   def test_gem(spec)
     runner = Tinderbox::GemRunner.new spec.name, spec.version.to_s, root
+    runner.timeout = @timeout
     runner.run
   end
 
