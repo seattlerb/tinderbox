@@ -11,6 +11,11 @@ module Tinderbox
   class InstallError < RuntimeError; end
 
   ##
+  # Indicates an installation that cannot be performed automatically.
+
+  class ManualInstallError < InstallError; end
+
+  ##
   # A struct to hold information about a Build.
 
   Build = Struct.new :successful, :duration, :log

@@ -173,16 +173,7 @@ class Tinderbox::GemTinderbox
     @target_id ||= @fc.get_target_id
 
     loop do
-      new_gems.each do |spec|
-        $stderr.puts "*** Checking #{spec.full_name}"
-        version_id = @fc.get_version_id spec
-        next if tested? version_id
-        $stderr.puts "*** Ignighting #{spec.full_name} (http://#{@host}/version/show/#{version_id})"
-        build = test_gem spec
-        $stderr.puts "*** #{build.successful ? 'not flammable' : 'flammable!' }"
-        build.submit version_id, @target_id, @host, @username, @password
-      end
-
+      new_gems.each do |spec| run_spec spec end
       sleep @wait_time
     end
   rescue RCRest::CommunicationError, Gem::RemoteFetcher::FetchError => e
@@ -195,6 +186,36 @@ class Tinderbox::GemTinderbox
       sleep 300
       retry
     end
+  end
+
+  def run_spec(spec)
+    $stderr.puts "*** Checking #{spec.full_name}"
+
+    version_id = @fc.get_version_id spec
+    return if tested? version_id
+
+    $stderr.puts "*** Igniting (http://#{@host}/version/show/#{version_id})"
+    begin
+      build = test_gem spec
+    rescue Tinderbox::InstallError => e
+      $stderr.print "*** Failed to install"
+      unless Tinderbox::ManualInstallError === e then
+        @seen_gems.delete spec
+        $stderr.print ", will try again later"
+      end
+      $stderr.puts
+      return
+    end
+
+    if build.successful then
+      $stderr.puts "*** I couldn't light #{spec.full_name} on fire"
+    else
+      $stderr.puts "*** I lit #{spec.full_name} on fire!"
+    end
+
+    build.submit version_id, @target_id, @host, @username, @password
+
+    build
   end
 
   ##

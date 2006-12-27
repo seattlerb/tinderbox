@@ -87,9 +87,10 @@ class Tinderbox::GemRunner
       @gemspec = @installed_gems.first
       "* #{@installed_gems.map { |s| s.full_name }.join "\n* "}"
     rescue Gem::RemoteInstallationCancelled => e
-      raise Tinderbox::InstallError,
+      raise Tinderbox::ManualInstallError,
             "Installation of #{@gem_name}-#{@gem_version} requires manual intervention"
     rescue Gem::InstallError, Gem::GemNotFoundException => e
+      FileUtils.rm_rf File.join(@cache_dir, "#{@gem_name}-#{@gem_version}.gem")
       raise Tinderbox::InstallError,
             "Installation of #{@gem_name}-#{@gem_version} failed (#{e.class}):\n\n#{e.message}"
     rescue SystemCallError => e # HACK push into Rubygems
@@ -174,19 +175,11 @@ class Tinderbox::GemRunner
     run_log = nil
 
     full_log << "*** installing #{@gem_name}-#{@gem_version} + dependencies"
-    begin
-      full_log << install
+    full_log << install
 
-      full_log << "*** testing #{@gemspec.full_name}"
-
-      duration, successful, run_log = test
-
-      full_log << run_log
-    rescue Tinderbox::InstallError => e
-      duration = 0
-      successful = false
-      full_log << e.message
-    end
+    full_log << "*** testing #{@gemspec.full_name}"
+    duration, successful, run_log = test
+    full_log << run_log
 
     build.duration = duration
     build.successful = successful

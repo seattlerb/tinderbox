@@ -10,12 +10,12 @@ require 'tinderbox/gem_tinderbox'
 require 'tinderbox/gem_runner'
 
 class Firebrigade::Cache
-  attr_reader :builds
+  attr_reader :builds, :owners, :projects, :versions, :targets
 end
 
 class Tinderbox::GemTinderbox
   attr_writer :source_info_cache, :target_id
-  attr_reader :fc
+  attr_reader :fc, :seen_gems
 end
 
 class TestTinderboxGemTinderbox < Test::Unit::TestCase
@@ -91,6 +91,89 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     util_test_run_error "Gem::RemoteFetcher::FetchError"
   end
 
+  def test_run_spec
+    fc = util_setup_cache
+    def fc.get_build_id(*a) nil end # not tested
+
+    Net::HTTP.responses << <<-EOF
+<ok>
+  <build>
+    <id>5</id>
+    <created_on>#{Time.now}</created_on>
+    <duration>1.5</duration>
+    <successful>true</successful>
+    <target_id>4</target_id>
+    <version_id>3</version_id>
+  </build>
+</ok>
+    EOF
+
+    build = nil
+
+    out, err = util_capture do
+      build = @tgt.run_spec @spec
+    end
+
+    assert_equal '', out.read
+    err = err.read.split "\n"
+    assert_equal "*** Checking #{@spec.full_name}", err.shift
+    assert_equal "*** Igniting (http://firebrigade.example.com/version/show/102)", err.shift
+    assert_equal "*** I lit #{@spec.full_name} on fire!", err.shift
+    assert_empty err
+  end
+
+  def test_run_spec_install_error
+    fc = util_setup_cache
+    def fc.get_build_id(*a) nil end # not tested
+    def @tgt.test_gem(spec) raise Tinderbox::InstallError end
+    @tgt.seen_gems << @spec
+
+    out, err = util_capture do
+      @tgt.run_spec @spec
+    end
+
+    deny_includes @spec, @tgt.seen_gems
+    assert_equal '', out.read
+    err = err.read.split "\n"
+    assert_equal "*** Checking #{@spec.full_name}", err.shift
+    assert_equal "*** Igniting (http://firebrigade.example.com/version/show/102)", err.shift
+    assert_equal "*** Failed to install, will try again later", err.shift
+    assert_empty err
+  end
+
+  def test_run_spec_manual_install_error
+    fc = util_setup_cache
+    def fc.get_build_id(*a) nil end # not tested
+    def @tgt.test_gem(spec) raise Tinderbox::ManualInstallError end
+    @tgt.seen_gems << @spec
+
+    out, err = util_capture do
+      @tgt.run_spec @spec
+    end
+
+    assert_includes @spec, @tgt.seen_gems
+    assert_equal '', out.read
+    err = err.read.split "\n"
+    assert_equal "*** Checking #{@spec.full_name}", err.shift
+    assert_equal "*** Igniting (http://firebrigade.example.com/version/show/102)", err.shift
+    assert_equal "*** Failed to install", err.shift
+    assert_empty err
+  end
+
+  def test_run_spec_tested
+    fc = util_setup_cache
+    def fc.get_build_id(*a) true end # tested
+
+    out, err = util_capture do
+      @tgt.run_spec @spec
+    end
+
+    assert_equal '', out.read
+    err = err.read.split "\n"
+    assert_equal "*** Checking #{@spec.full_name}", err.shift
+    assert_empty err
+  end
+
   def test_tested_eh
     @tgt.target_id = 5
     @tgt.fc.builds[[3, 5]] = 4
@@ -127,6 +210,16 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     err = err.read.split "\n"
     assert_equal message, err.first
     assert_match(/Will retry at/, err.last)
+  end
+
+  def util_setup_cache
+    @tgt.target_id = 5
+    fc = @tgt.fc
+    fc.owners['gem'] = 100
+    fc.projects[[100, 'gem_one']] = 101
+    fc.versions[[101, '0.0.2']] = 102
+    
+    fc
   end
 
 end

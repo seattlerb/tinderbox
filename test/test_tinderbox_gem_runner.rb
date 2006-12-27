@@ -10,7 +10,7 @@ require 'tinderbox/gem_runner'
 
 class Tinderbox::GemRunner
   attr_writer :gemspec
-  attr_accessor :installed_gems
+  attr_accessor :installed_gems, :remote_installer
 end
 
 class Gem::RemoteInstaller
@@ -85,6 +85,32 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     deny_empty Dir[File.join(@sandbox_dir, 'gems', @gem_full_name)]
     assert_equal true, File.directory?(File.join(@root, 'cache'))
     assert_equal @gem_full_name, @tgr.gemspec.full_name
+  end
+
+  def test_install_bad_gem
+    ri = @tgr.remote_installer
+    def ri.install(*a) raise Gem::InstallError end
+
+    @tgr.sandbox_setup
+    @tgr.install_sources
+    assert_raise Tinderbox::InstallError do
+      @tgr.install
+    end
+
+    assert_empty Dir[File.join(@sandbox_dir, 'gems', @gem_full_name)]
+    assert_equal true, File.directory?(File.join(@root, 'cache'))
+  end
+
+  def test_install_wrong_platform
+    ri = @tgr.remote_installer
+    def ri.install(*a) raise Gem::RemoteInstallationCancelled end
+
+    @tgr.sandbox_setup
+    @tgr.install_sources
+
+    assert_raise Tinderbox::ManualInstallError do
+      @tgr.install
+    end
   end
 
   def test_install_rake
