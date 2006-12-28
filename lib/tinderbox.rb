@@ -11,6 +11,12 @@ module Tinderbox
   class InstallError < RuntimeError; end
 
   ##
+  # Indicates an error while installing extensions to a gem we're going to
+  # test.
+
+  class BuildError < RuntimeError; end
+
+  ##
   # Indicates an installation that cannot be performed automatically.
 
   class ManualInstallError < InstallError; end

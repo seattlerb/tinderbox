@@ -98,7 +98,19 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     end
 
     assert_empty Dir[File.join(@sandbox_dir, 'gems', @gem_full_name)]
-    assert_equal true, File.directory?(File.join(@root, 'cache'))
+  end
+
+  def test_install_ext_build_error
+    ri = @tgr.remote_installer
+    def ri.install(*a) raise Gem::Installer::ExtensionBuildError end
+
+    @tgr.sandbox_setup
+    @tgr.install_sources
+    assert_raise Tinderbox::BuildError do
+      @tgr.install
+    end
+
+    assert_empty Dir[File.join(@sandbox_dir, 'gems', @gem_full_name)]
   end
 
   def test_install_wrong_platform

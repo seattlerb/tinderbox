@@ -89,6 +89,8 @@ class Tinderbox::GemRunner
     rescue Gem::RemoteInstallationCancelled => e
       raise Tinderbox::ManualInstallError,
             "Installation of #{@gem_name}-#{@gem_version} requires manual intervention"
+    rescue Gem::Installer::ExtensionBuildError => e
+      raise Tinderbox::BuildError, "Unable to build #{@gem_name}-#{@gem_version}:\n\n#{e.message}"
     rescue Gem::InstallError, Gem::GemNotFoundException => e
       FileUtils.rm_rf File.join(@cache_dir, "#{@gem_name}-#{@gem_version}.gem")
       raise Tinderbox::InstallError,
