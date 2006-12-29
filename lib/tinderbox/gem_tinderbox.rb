@@ -142,7 +142,7 @@ class Tinderbox::GemTinderbox
     @timeout = 120
 
     @source_info_cache = nil 
-    @seen_gems = []
+    @seen_gem_names = []
     @wait_time = 300
 
     @fc = Firebrigade::Cache.new @host, @username, @password
@@ -155,21 +155,22 @@ class Tinderbox::GemTinderbox
   def new_gems
     update_gems
 
-    latest_gems = []
+    latest_gems = {}
     source_info_cache.cache_data.each do |source, sic_e|
-      latest_gems.push(*sic_e.source_index.latest_specs.values)
+      sic_e.source_index.latest_specs.each do |name, spec|
+        latest_gems[name] = spec
+      end
     end
-    latest_gems.uniq! # HACK same gem from multiple sources, sorry!
 
-    new_gems = latest_gems - @seen_gems
+    new_gem_names = latest_gems.keys - @seen_gem_names
 
-    @seen_gems = latest_gems
+    @seen_gem_names = latest_gems.keys
 
-    new_gems
+    latest_gems.values_at(*new_gem_names)
   end
 
   def run
-    @seen_gems = []
+    @seen_gem_names = []
     @target_id ||= @fc.get_target_id
 
     loop do
@@ -197,13 +198,12 @@ class Tinderbox::GemTinderbox
     $stderr.puts "*** Igniting (http://#{@host}/version/show/#{version_id})"
     begin
       build = test_gem spec
+    rescue Tinderbox::BuildError, Tinderbox::InstallError => e
+      @seen_gem_names.delete spec.full_name
+      $stderr.puts "*** Failed to install (#{e.class})"
+      return
     rescue Tinderbox::InstallError => e
-      $stderr.print "*** Failed to install"
-      unless Tinderbox::ManualInstallError === e then
-        @seen_gems.delete spec
-        $stderr.print ", will try again later"
-      end
-      $stderr.puts
+      $stderr.puts "*** Failed to install (#{e.class}), will try again later"
       return
     end
 

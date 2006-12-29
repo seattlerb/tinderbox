@@ -15,7 +15,7 @@ end
 
 class Tinderbox::GemTinderbox
   attr_writer :source_info_cache, :target_id
-  attr_reader :fc, :seen_gems
+  attr_reader :fc, :seen_gem_names
 end
 
 class TestTinderboxGemTinderbox < Test::Unit::TestCase
@@ -126,13 +126,13 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     fc = util_setup_cache
     def fc.get_build_id(*a) nil end # not tested
     def @tgt.test_gem(spec) raise Tinderbox::InstallError end
-    @tgt.seen_gems << @spec
+    @tgt.seen_gem_names << @spec
 
     out, err = util_capture do
       @tgt.run_spec @spec
     end
 
-    deny_includes @spec, @tgt.seen_gems
+    deny_includes @spec, @tgt.seen_gem_names
     assert_equal '', out.read
     err = err.read.split "\n"
     assert_equal "*** Checking #{@spec.full_name}", err.shift
@@ -145,13 +145,13 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     fc = util_setup_cache
     def fc.get_build_id(*a) nil end # not tested
     def @tgt.test_gem(spec) raise Tinderbox::ManualInstallError end
-    @tgt.seen_gems << @spec
+    @tgt.seen_gem_names << @spec
 
     out, err = util_capture do
       @tgt.run_spec @spec
     end
 
-    assert_includes @spec, @tgt.seen_gems
+    assert_includes @spec, @tgt.seen_gem_names
     assert_equal '', out.read
     err = err.read.split "\n"
     assert_equal "*** Checking #{@spec.full_name}", err.shift
