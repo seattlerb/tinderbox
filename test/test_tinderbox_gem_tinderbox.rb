@@ -132,12 +132,12 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
       @tgt.run_spec @spec
     end
 
-    deny_includes @spec, @tgt.seen_gem_names
+    deny_includes @spec.full_name, @tgt.seen_gem_names
     assert_equal '', out.read
     err = err.read.split "\n"
     assert_equal "*** Checking #{@spec.full_name}", err.shift
     assert_equal "*** Igniting (http://firebrigade.example.com/version/show/102)", err.shift
-    assert_equal "*** Failed to install, will try again later", err.shift
+    assert_equal "*** Failed to install (Tinderbox::InstallError)", err.shift
     assert_empty err
   end
 
@@ -155,8 +155,10 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     assert_equal '', out.read
     err = err.read.split "\n"
     assert_equal "*** Checking #{@spec.full_name}", err.shift
-    assert_equal "*** Igniting (http://firebrigade.example.com/version/show/102)", err.shift
-    assert_equal "*** Failed to install", err.shift
+    assert_equal "*** Igniting (http://firebrigade.example.com/version/show/102)",
+                 err.shift
+    assert_equal "*** Failed to install (Tinderbox::ManualInstallError)",
+                 err.shift
     assert_empty err
   end
 

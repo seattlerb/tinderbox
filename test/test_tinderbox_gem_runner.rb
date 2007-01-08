@@ -146,8 +146,8 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     deny_empty Dir[File.join(@sandbox_dir, 'gems', 'rake-*')]
 
     expected = <<-EOF
-*** HAS Rakefile, DOES NOT DEPEND ON RAKE!  NEEDS s.add_dependency 'rake'
-*** rake installed, even though you claim not to need it
+!!! HAS Rakefile, DOES NOT DEPEND ON RAKE!  NEEDS s.add_dependency 'rake'
+### rake installed, even though you claim not to need it
     EOF
 
     assert_equal expected, log
@@ -188,10 +188,10 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     assert_equal false, build.successful
 
     expected = <<-EOF.strip
-*** installing some_test_gem-1.2.3 + dependencies
-* some_test_gem-1.2.3
-*** testing some_test_gem-1.2.3
-*** could not figure out how to test some_test_gem-1.2.3
+### installing some_test_gem-1.2.3 + dependencies
+### some_test_gem-1.2.3
+### testing some_test_gem-1.2.3
+!!! could not figure out how to test some_test_gem-1.2.3
     EOF
 
     assert_equal expected, build.log
@@ -201,7 +201,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     output, duration = @tgr.run_command "ruby -e '$stderr.puts \"bye\"; $stdout.puts \"hi\"'"
 
     expected = <<-EOF
-*** ruby -e '$stderr.puts \"bye\"; $stdout.puts \"hi\"'
+### ruby -e '$stderr.puts \"bye\"; $stdout.puts \"hi\"'
 bye
 hi
     EOF
@@ -253,7 +253,7 @@ hi
     assert_equal false, successful
 
     expected = <<-EOF.strip
-*** could not figure out how to test some_test_gem-1.2.3
+!!! could not figure out how to test some_test_gem-1.2.3
     EOF
 
     assert_equal expected, log

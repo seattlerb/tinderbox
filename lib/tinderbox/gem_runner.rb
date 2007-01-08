@@ -15,6 +15,9 @@ require 'rubygems/remote_installer'
 
 class Tinderbox::GemRunner
 
+  ##
+  # Raised when the tinderbox job times out.
+
   class RunTimeout < Timeout::Error; end
 
   ##
@@ -85,7 +88,7 @@ class Tinderbox::GemRunner
     begin
       @installed_gems = @remote_installer.install @gem_name, @gem_version
       @gemspec = @installed_gems.first
-      "* #{@installed_gems.map { |s| s.full_name }.join "\n* "}"
+      "### #{@installed_gems.map { |s| s.full_name }.join "\n### "}"
     rescue Gem::RemoteInstallationCancelled => e
       raise Tinderbox::ManualInstallError,
             "Installation of #{@gem_name}-#{@gem_version} requires manual intervention"
@@ -126,7 +129,7 @@ class Tinderbox::GemRunner
 
   def install_rake
     log = []
-    log << "*** HAS Rakefile, DOES NOT DEPEND ON RAKE!  NEEDS s.add_dependency 'rake'"
+    log << "!!! HAS Rakefile, DOES NOT DEPEND ON RAKE!  NEEDS s.add_dependency 'rake'"
 
     retries = 5
 
@@ -134,7 +137,7 @@ class Tinderbox::GemRunner
 
     begin
       @installed_gems.push(*@remote_installer.install('rake', rake_version))
-      log << "*** rake installed, even though you claim not to need it"
+      log << "### rake installed, even though you claim not to need it"
     rescue Gem::InstallError, Gem::GemNotFoundException => e
       log << "Installation of rake failed (#{e.class}):\n\n#{e.message}"
     rescue SystemCallError => e
@@ -176,17 +179,17 @@ class Tinderbox::GemRunner
     full_log = []
     run_log = nil
 
-    full_log << "*** installing #{@gem_name}-#{@gem_version} + dependencies"
+    full_log << "### installing #{@gem_name}-#{@gem_version} + dependencies"
     full_log << install
 
-    full_log << "*** testing #{@gemspec.full_name}"
+    full_log << "### testing #{@gemspec.full_name}"
     duration, successful, run_log = test
     full_log << run_log
 
     build.duration = duration
     build.successful = successful
     build.log = full_log.join "\n"
-    
+
     return build
   end
 
@@ -196,13 +199,13 @@ class Tinderbox::GemRunner
 
   def run_command(command)
     start = Time.now
-    output = "*** #{command}\n"
+    output = "### #{command}\n"
     begin
       Timeout.timeout @timeout, RunTimeout do
         output << `#{command} #{redirector}`
       end
     rescue RunTimeout
-      output << "*** failed to complete in under #{@timeout} seconds\n"
+      output << "!!! failed to complete in under #{@timeout} seconds\n"
       `ruby -e 'exit 1'` # force $?
     end
     duration = Time.now - start
@@ -252,18 +255,18 @@ class Tinderbox::GemRunner
       elsif File.directory? 'test' then
         log, duration = run_command 'ruby -Ilib -S testrb test'
       else
-        log = "*** could not figure out how to test #{@gemspec.full_name}"
+        log = "!!! could not figure out how to test #{@gemspec.full_name}"
         return [0, false, log]
       end
 
       successful = $CHILD_STATUS.exitstatus == 0
       if log =~ / (\d+) failures, (\d+) errors/ and
          $1 != '0' and $2 != '0' then
-        log << "*** Project has broken test target" if successful
+        log << "!!! Project has broken test target" if successful
         successful = false
       elsif log =~ / 0 assertions/ or log !~ / \d+ assertions/ then
-        successful = false 
-        log << "*** No test output indicating success found"
+        successful = false
+        log << "!!! No test output indicating success found"
       end
 
       return [duration, successful, log]
