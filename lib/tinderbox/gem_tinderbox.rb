@@ -177,7 +177,8 @@ class Tinderbox::GemTinderbox
       new_gems.each do |spec| run_spec spec end
       sleep @wait_time
     end
-  rescue RCRest::CommunicationError, Gem::RemoteFetcher::FetchError => e
+  rescue RCRest::CommunicationError, Gem::RemoteFetcher::FetchError,
+         Gem::RemoteSourceException => e
     wait = Time.now + 300
 
     $stderr.puts e.message

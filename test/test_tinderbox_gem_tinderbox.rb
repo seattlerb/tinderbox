@@ -91,6 +91,14 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     util_test_run_error "Gem::RemoteFetcher::FetchError"
   end
 
+  def test_run_remote_source_exception
+    Net::HTTP.responses << proc do |req|
+      raise Gem::RemoteSourceException, 'HTTP Response 403'
+    end
+
+    util_test_run_error 'HTTP Response 403'
+  end
+
   def test_run_spec
     fc = util_setup_cache
     def fc.get_build_id(*a) nil end # not tested
