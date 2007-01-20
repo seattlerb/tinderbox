@@ -163,6 +163,67 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     deny_empty Dir["#{File.join @sandbox_dir, 'gems', 'sources'}-*"]
   end
 
+  def test_passed_eh
+    status = Object.new
+    def status.exitstatus() 0; end
+
+    log = "1 tests, 1 assertions, 0 failures, 0 errors\n"
+    tested, passed = @tgr.passed?(status, log)
+
+    assert_equal "1 tests, 1 assertions, 0 failures, 0 errors\n", log
+
+    assert passed
+    assert tested
+  end
+
+  def test_passed_eh_no_assertions
+    status = Object.new
+    def status.exitstatus() 0; end
+
+    log = "1 tests, 0 assertions, 0 failures, 0 errors\n"
+    tested, passed = @tgr.passed?(status, log)
+
+    expected = <<-EOF.strip
+1 tests, 0 assertions, 0 failures, 0 errors
+!!! No test output indicating success found
+    EOF
+
+    assert_equal expected, log
+
+    assert tested
+    deny passed
+  end
+
+  def test_passed_eh_broken
+    status = Object.new
+    def status.exitstatus() 0; end
+
+    log = "1 tests, 1 assertions, 1 failures, 0 errors\n"
+    tested, passed = @tgr.passed?(status, log)
+
+    expected = <<-EOF.strip
+1 tests, 1 assertions, 1 failures, 0 errors
+!!! Project has broken test target, exited with 0 after test failure
+    EOF
+
+    assert_equal expected, log
+
+    assert tested
+    deny passed
+  end
+
+  def test_passed_eh_exit_failed
+    status = Object.new
+    def status.exitstatus() 1; end
+
+    log = "1 tests, 1 assertions, 0 failures, 0 errors\n"
+    tested, passed = @tgr.passed?(status, log)
+    assert_equal "1 tests, 1 assertions, 0 failures, 0 errors\n", log
+
+    assert tested
+    deny passed
+  end
+
   def test_rake_installed_eh
     e = assert_raises RuntimeError do
       @tgr.rake_installed?
@@ -241,6 +302,29 @@ hi
     end
 
     assert_equal "#{@sandbox_dir} already exists", e.message
+  end
+
+  def test_test_best_effort
+    util_test_setup
+
+    File.open File.join(@gemspec.full_gem_path, 'Rakefile'), 'w' do |fp|
+      fp.write <<-EOF
+require 'rake/testtask'
+
+task :test do exit 1 end
+      EOF
+    end
+
+    File.open File.join(@gemspec.full_gem_path, 'Makefile'), 'w' do |fp|
+      fp.write <<-EOF
+test:
+\texit 1
+
+.PHONY: test
+      EOF
+    end
+
+    util_test_assertions true, -1
   end
 
   def test_test_no_tests
@@ -339,8 +423,8 @@ end
     ENV['GEM_HOME'] = nil
     duration, successful, log = @tgr.test
 
-    assert_operator 0, :<, duration
-    assert_equal passes, successful
+    assert_operator 0, :<, duration, 'Time taken too short'
+    assert_equal passes, successful, 'The tests failed'
 
     log = log.split "\n"
 

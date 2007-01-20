@@ -152,18 +152,30 @@ class Tinderbox::GemRunner
   end
 
   ##
+  # Checks to see if #process_status exited successfully, ran at least one
+  # assertion and all tests passed without error or failure.
+
+  def passed?(process_status, log)
+    tested = log =~ /^\d+ tests, \d+ assertions, \d+ failures, \d+ errors$/
+    successful = process_status.exitstatus == 0
+
+    if log =~ / (\d+) failures, (\d+) errors/ and ($1 != '0' or $2 != '0') then
+      log << "!!! Project has broken test target, exited with 0 after test failure" if successful
+      successful = false
+    elsif log =~ / 0 assertions/ or log !~ / \d+ assertions/ then
+      successful = false
+      log << "!!! No test output indicating success found"
+    end
+    
+    return tested, successful
+  end
+
+  ##
   # Checks to see if the rake gem was installed by the gem under test
 
   def rake_installed?
     raise 'you haven\'t installed anything yet' if @installed_gems.nil?
     @installed_gems.any? { |s| s.name == 'rake' }
-  end
-
-  ##
-  # Platform-specific shell redirection
-
-  def redirector
-    RUBY_PLATFORM =~ /mswin/ ? '1<&2' : '2>&1'
   end
 
   ##
@@ -202,7 +214,7 @@ class Tinderbox::GemRunner
     output = "### #{command}\n"
     begin
       Timeout.timeout @timeout, RunTimeout do
-        output << `#{command} #{redirector}`
+        output << `#{command} 2>&1`
       end
     rescue RunTimeout
       output << "!!! failed to complete in under #{@timeout} seconds\n"
@@ -242,34 +254,39 @@ class Tinderbox::GemRunner
 
   def test
     Dir.chdir @gemspec.full_gem_path do
-      duration = nil
-      log = nil
+      duration = 0
+      log = ''
 
       if File.exist? 'Rakefile' then
-        log = ''
         log << install_rake unless rake_installed?
-        run_log, duration = run_command 'rake test'
+        run_log, rake_time = run_command 'rake test'
         log << run_log
-      elsif File.exist? 'Makefile' then
-        log, duration = run_command 'make test'
-      elsif File.directory? 'test' then
-        log, duration = run_command 'ruby -Ilib -S testrb test'
-      else
-        log = "!!! could not figure out how to test #{@gemspec.full_name}"
-        return [0, false, log]
+        duration += rake_time
+
+        tested, successful = passed? $CHILD_STATUS, log
+        return [duration, successful, log] if tested
       end
 
-      successful = $CHILD_STATUS.exitstatus == 0
-      if log =~ / (\d+) failures, (\d+) errors/ and
-         $1 != '0' and $2 != '0' then
-        log << "!!! Project has broken test target" if successful
-        successful = false
-      elsif log =~ / 0 assertions/ or log !~ / \d+ assertions/ then
-        successful = false
-        log << "!!! No test output indicating success found"
+      if File.exist? 'Makefile' then
+        run_log, make_time = run_command 'make test'
+        log << run_log
+        duration += make_time
+
+        tested, successful = passed? $CHILD_STATUS, log
+        return [duration, successful, log] if tested
       end
 
-      return [duration, successful, log]
+      if File.directory? 'test' then
+        run_log, testrb_time = run_command 'ruby -Ilib -S testrb test'
+        log << run_log
+        duration += testrb_time
+        
+        tested, successful = passed? $CHILD_STATUS, log
+        return [duration, successful, log] if tested
+      end
+
+      log = "!!! could not figure out how to test #{@gemspec.full_name}"
+      return [0, false, log]
     end
   end
 
