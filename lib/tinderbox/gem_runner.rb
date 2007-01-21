@@ -3,6 +3,7 @@ require 'tinderbox'
 require 'English'
 require 'fileutils'
 require 'open-uri'
+require 'rbconfig'
 require 'stringio'
 require 'timeout'
 
@@ -77,6 +78,17 @@ class Tinderbox::GemRunner
     @installed_gems = nil
 
     @timeout = 120
+
+    @log = ''
+    @duration = 0
+    @successful = :not_tested
+  end
+
+  ##
+  # The gem's library paths.
+
+  def gem_lib_paths
+    @gemspec.require_paths.join Config::CONFIG['PATH_SEPARATOR']
   end
 
   ##
@@ -148,26 +160,63 @@ class Tinderbox::GemRunner
       log << "Could not download rake"
     end
 
-    return log.join("\n") + "\n"
+    @log << (log.join("\n") + "\n")
+  end
+
+  ##
+  # Installs the RSpec gem into the sandbox
+
+  def install_rspec(message)
+    log = []
+    log << "!!! HAS #{message}, DOES NOT DEPEND ON RSPEC!  NEEDS s.add_dependency 'rspec'"
+
+    retries = 5
+
+    rspec_version = Gem::SourceInfoCache.search(/^rspec$/).last.version.to_s
+
+    begin
+      @installed_gems.push(*@remote_installer.install('rspec', rspec_version))
+      log << "### RSpec installed, even though you claim not to need it"
+    rescue Gem::InstallError, Gem::GemNotFoundException => e
+      log << "Installation of RSpec failed (#{e.class}):\n\n#{e.message}"
+    rescue SystemCallError => e
+      retries -= 1
+      retry if retries >= 0
+      log << "Installation of RSpec failed after 5 tries"
+    rescue OpenURI::HTTPError => e
+      log << "Could not download rspec"
+    end
+
+    @log << (log.join("\n") + "\n")
   end
 
   ##
   # Checks to see if #process_status exited successfully, ran at least one
-  # assertion and all tests passed without error or failure.
+  # assertion or specification and the run finished without error or failure.
 
-  def passed?(process_status, log)
-    tested = log =~ /^\d+ tests, \d+ assertions, \d+ failures, \d+ errors$/
-    successful = process_status.exitstatus == 0
+  def passed?(process_status)
+    tested = @log =~ /^\d+ tests, \d+ assertions, \d+ failures, \d+ errors$/ ||
+             @log =~ /^\d+ specifications?, \d+ failures?$/
+    @successful = process_status.exitstatus == 0
 
-    if log =~ / (\d+) failures, (\d+) errors/ and ($1 != '0' or $2 != '0') then
-      log << "!!! Project has broken test target, exited with 0 after test failure" if successful
-      successful = false
-    elsif log =~ / 0 assertions/ or log !~ / \d+ assertions/ then
-      successful = false
-      log << "!!! No test output indicating success found"
+    if not tested and @successful then
+      @successful = false
+      return tested
+    end
+
+    if @log =~ / (\d+) failures, (\d+) errors/ and ($1 != '0' or $2 != '0') then
+      @log << "!!! Project has broken test target, exited with 0 after test failure\n" if @successful
+      @successful = false
+    elsif @log =~ /\d+ specifications?, (\d+) failures?$/ and $1 != '0' then
+      @log << "!!! Project has broken spec target, exited with 0 after spec failure\n" if @successful
+      @successful = false
+    elsif (@log =~ / 0 assertions/ or @log !~ / \d+ assertions/) and
+          (@log =~ /0 specifications/ or @log !~ /\d+ specification/) then
+      @successful = false
+      @log << "!!! No output indicating success found\n"
     end
     
-    return tested, successful
+    return tested
   end
 
   ##
@@ -176,6 +225,22 @@ class Tinderbox::GemRunner
   def rake_installed?
     raise 'you haven\'t installed anything yet' if @installed_gems.nil?
     @installed_gems.any? { |s| s.name == 'rake' }
+  end
+
+  ##
+  # Checks to see if the rspec gem was installed by the gem under test
+
+  def rspec_installed?
+    raise 'you haven\'t installed anything yet' if @installed_gems.nil?
+    @installed_gems.any? { |s| s.name == 'rspec' }
+  end
+
+  ##
+  # Path to ruby
+
+  def ruby
+    ruby_exe = Config::CONFIG['ruby_install_name'] + Config::CONFIG['EXEEXT']
+    File.join Config::CONFIG['bindir'], ruby_exe
   end
 
   ##
@@ -195,10 +260,10 @@ class Tinderbox::GemRunner
     full_log << install
 
     full_log << "### testing #{@gemspec.full_name}"
-    duration, successful, run_log = test
-    full_log << run_log
+    successful = test
+    full_log << @log
 
-    build.duration = duration
+    build.duration = @duration
     build.successful = successful
     build.log = full_log.join "\n"
 
@@ -206,22 +271,24 @@ class Tinderbox::GemRunner
   end
 
   ##
-  # Runs shell command +command+ and returns the commands output and the time
-  # it took to run.
+  # Runs shell command +command+ and records the command's output and the time
+  # it took to run.  Returns true if evidence of a test run were found in the
+  # command output.
 
   def run_command(command)
     start = Time.now
-    output = "### #{command}\n"
+    @log << "### #{command}\n"
     begin
       Timeout.timeout @timeout, RunTimeout do
-        output << `#{command} 2>&1`
+        @log << `#{command} 2>&1`
       end
     rescue RunTimeout
-      output << "!!! failed to complete in under #{@timeout} seconds\n"
+      @log << "!!! failed to complete in under #{@timeout} seconds\n"
       `ruby -e 'exit 1'` # force $?
     end
-    duration = Time.now - start
-    return output, duration
+    @duration += Time.now - start
+
+    passed? $CHILD_STATUS
   end
 
   ##
@@ -248,46 +315,52 @@ class Tinderbox::GemRunner
   end
 
   ##
-  # Runs the tests for the gem.  Returns the time the tests took to run,
-  # whether the tests where successful (exit code 0) and the log for the
-  # tests.
+  # Tries a best-effort at running the tests or specifications for a gem.  The
+  # following commands are tried, and #test stops on the first evidence of a
+  # test run.
+  #
+  # 1. rake test
+  # 2. rake spec
+  # 3. make test
+  # 4. ruby -Ilib -S testrb test
+  # 5. spec spec/*
 
   def test
     Dir.chdir @gemspec.full_gem_path do
-      duration = 0
-      log = ''
-
       if File.exist? 'Rakefile' then
-        log << install_rake unless rake_installed?
-        run_log, rake_time = run_command 'rake test'
-        log << run_log
-        duration += rake_time
+        install_rake unless rake_installed?
+        return if run_command 'rake test'
+      end
 
-        tested, successful = passed? $CHILD_STATUS, log
-        return [duration, successful, log] if tested
+      if File.exist? 'Rakefile' and `rake -T` =~ /^rake spec/ then
+        install_rspec '`rake spec`' unless rspec_installed?
+        return if run_command 'rake spec'
       end
 
       if File.exist? 'Makefile' then
-        run_log, make_time = run_command 'make test'
-        log << run_log
-        duration += make_time
-
-        tested, successful = passed? $CHILD_STATUS, log
-        return [duration, successful, log] if tested
+        return if run_command 'make test'
       end
 
       if File.directory? 'test' then
-        run_log, testrb_time = run_command 'ruby -Ilib -S testrb test'
-        log << run_log
-        duration += testrb_time
-        
-        tested, successful = passed? $CHILD_STATUS, log
-        return [duration, successful, log] if tested
+        return if run_command "#{ruby} -I#{gem_lib_paths} -S #{testrb} test"
       end
 
-      log = "!!! could not figure out how to test #{@gemspec.full_name}"
-      return [0, false, log]
+      if File.directory? 'spec' then
+        install_rspec 'spec DIRECTORY' unless rake_installed?
+        return if run_command 'spec spec/*'
+      end
+
+      @log << "!!! could not figure out how to test #{@gemspec.full_name}"
+      @successful = false
     end
+  end
+
+  ##
+  # Path to testrb
+
+  def testrb
+    testrb_exe = 'testrb' + (RUBY_PLATFORM =~ /mswin/ ? '.bat' : '')
+    File.join Config::CONFIG['bindir'], testrb_exe
   end
 
 end

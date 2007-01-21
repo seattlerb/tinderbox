@@ -15,6 +15,7 @@ Hoe.new 'tinderbox', Tinderbox::VERSION do |p|
 
   p.extra_deps << ['ZenTest', '>= 3.4.0']
   p.extra_deps << ['firebrigade_api', '>= 1.0.0']
+  p.extra_deps << ['rspec', '>= 0.7.5.1']
 end
 
 # vim: syntax=Ruby
