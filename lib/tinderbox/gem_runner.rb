@@ -329,12 +329,12 @@ class Tinderbox::GemRunner
     Dir.chdir @gemspec.full_gem_path do
       if File.exist? 'Rakefile' then
         install_rake unless rake_installed?
-        return if run_command 'rake test'
+        return if run_command "#{ruby} -S rake test"
       end
 
       if File.exist? 'Rakefile' and `rake -T` =~ /^rake spec/ then
         install_rspec '`rake spec`' unless rspec_installed?
-        return if run_command 'rake spec'
+        return if run_command "#{ruby} -S rake spec"
       end
 
       if File.exist? 'Makefile' then
@@ -347,7 +347,7 @@ class Tinderbox::GemRunner
 
       if File.directory? 'spec' then
         install_rspec 'spec DIRECTORY' unless rake_installed?
-        return if run_command 'spec spec/*'
+        return if run_command "#{ruby} -S spec spec/*"
       end
 
       @log << "!!! could not figure out how to test #{@gemspec.full_name}"
