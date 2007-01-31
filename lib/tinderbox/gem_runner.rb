@@ -217,7 +217,7 @@ class Tinderbox::GemRunner
       @successful = false
       @log << "!!! No output indicating success found\n"
     end
-    
+
     return tested
   end
 
@@ -262,11 +262,11 @@ class Tinderbox::GemRunner
     full_log << install
 
     full_log << "### testing #{@gemspec.full_name}"
-    successful = test
+    test
     full_log << @log
 
     build.duration = @duration
-    build.successful = successful
+    build.successful = @successful
     build.log = full_log.join "\n"
 
     return build

@@ -397,6 +397,31 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     assert_equal expected, build.log
   end
 
+  def test_run_pass
+    def @tgr.test
+      @log = "passed!"
+      @successful = true
+      @duration = 1.0
+      nil
+    end
+
+    build = @tgr.run
+
+    assert_equal true, File.exist?(File.join(@sandbox_dir, 'source_cache'))
+
+    assert_equal 1.0, build.duration
+    assert_equal true, build.successful
+
+    expected = <<-EOF.strip
+### installing some_test_gem-1.2.3 + dependencies
+### some_test_gem-1.2.3
+### testing some_test_gem-1.2.3
+passed!
+    EOF
+
+    assert_equal expected, build.log
+  end
+
   def test_run_command
     tested = @tgr.run_command "ruby -e '$stderr.puts \"bye\"; $stdout.puts \"hi\"'"
 
