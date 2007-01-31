@@ -1,3 +1,7 @@
+##
+# Tinderbox tests gems in a sandbox.  See Tinderbox::GemRunner and
+# Tinderbox::GemTinderbox for further details.
+
 module Tinderbox
 
   ##
@@ -11,7 +15,7 @@ module Tinderbox
   class InstallError < RuntimeError; end
 
   ##
-  # Indicates an error while installing extensions to a gem we're going to
+  # Indicates an error while building extensions for a gem we're going to
   # test.
 
   class BuildError < InstallError; end
@@ -22,7 +26,7 @@ module Tinderbox
   class ManualInstallError < InstallError; end
 
   ##
-  # A struct to hold information about a Build.
+  # A Struct that holds information about a Build.
 
   Build = Struct.new :successful, :duration, :log
 

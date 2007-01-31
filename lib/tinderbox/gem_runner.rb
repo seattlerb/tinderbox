@@ -13,6 +13,8 @@ require 'rubygems/remote_installer'
 ##
 # Tinderbox::GemRunner tests a gem and creates a Tinderbox::Build holding the
 # results of the test run.
+#
+# You can use tinderbox_gem_build to test your gem in a sandbox.
 
 class Tinderbox::GemRunner
 

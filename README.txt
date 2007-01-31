@@ -5,14 +5,15 @@ by Eric Hodel
 http://seattlerb.rubyforge.org/tinderbox
 
 == DESCRIPTION:
-  
+
 Tinderbox tests projects and tries to make them break by running them on as
 many different platforms as possible.
 
 == FEATURES/PROBLEMS:
-  
-* Only knows how to test gems
-* Doesn't ignore network problems when fetching gems
+
+* Tests gems in a sandbox
+* Submits gem test results to http://firebrigade.seattlerb.org
+* Understands test/unit and RSpec
 
 == SYNOPSYS:
 
@@ -20,9 +21,11 @@ many different platforms as possible.
 
 == REQUIREMENTS:
 
-* rubygems-0.9.1
-* firebrigade_api-1.0.0
-* Persistent connection to the internet
+* RubyGems 0.9.1
+* firebrigade_api
+* RSpec
+* Rake
+* Connection to the internet
 
 == INSTALL:
 

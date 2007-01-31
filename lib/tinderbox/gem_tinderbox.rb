@@ -11,11 +11,23 @@ require 'socket'
 require 'rubygems'
 require 'firebrigade/cache'
 
+##
+# GemTinderbox is a tinderbox for RubyGems.
+
 class Tinderbox::GemTinderbox
+
+  ##
+  # Root directory that the GemTinderbox will use.
 
   attr_accessor :root
 
+  ##
+  # Timeout for GemRunner.
+
   attr_accessor :timeout
+
+  ##
+  # Processes +args+ into options.
 
   def self.process_args(args)
     opts_file = File.expand_path '~/.gem_tinderbox'
@@ -113,6 +125,9 @@ class Tinderbox::GemTinderbox
     exit 1
   end
 
+  ##
+  # Starts a GemTinderbox.
+
   def self.run(args = ARGV)
     options = process_args args
 
@@ -127,12 +142,17 @@ class Tinderbox::GemTinderbox
 
     tinderbox.run
 
-  rescue Interrupt, SystemExit # ignore
+  rescue Interrupt, SystemExit
+    exit
   rescue Exception => e
     puts "#{e.message}(#{e.class}):"
     puts "\t#{e.backtrace.join "\n\t"}"
     exit 1
   end
+
+  ##
+  # Creates a new GemTinderbox that will submit results to +host+ as
+  # +username+ using +password+.
 
   def initialize(host, username, password)
     @host = host
@@ -169,6 +189,12 @@ class Tinderbox::GemTinderbox
     latest_gems.values_at(*new_gem_names)
   end
 
+  ##
+  # Tests all the gems, then waits a while and tests anything that is new in
+  # the index.  If an unhandled error is encountered, GemTinderbox waits a
+  # minute then starts from the beginning.  (Since information is cached,
+  # GemTinderbox won't pound on Firebrigade.)
+
   def run
     @seen_gem_names = []
     @target_id ||= @fc.get_target_id
@@ -179,16 +205,20 @@ class Tinderbox::GemTinderbox
     end
   rescue RCRest::CommunicationError, Gem::RemoteFetcher::FetchError,
          Gem::RemoteSourceException => e
-    wait = Time.now + 300
+    wait = Time.now + 60
 
     $stderr.puts e.message
     $stderr.puts "Will retry at #{wait}"
 
     unless $TESTING then
-      sleep 300
+      sleep 60
       retry
     end
   end
+
+  ##
+  # Runs Gem::Specification +spec+ using a GemRunner then submits the results
+  # to Firebrigade.
 
   def run_spec(spec)
     $stderr.puts "*** Checking #{spec.full_name}"
@@ -196,7 +226,7 @@ class Tinderbox::GemTinderbox
     version_id = @fc.get_version_id spec
     return if tested? version_id
 
-    $stderr.puts "*** Igniting (http://#{@host}/version/show/#{version_id})"
+    $stderr.puts "*** Igniting (http://#{@host}/version/show/#{spec.name}/#{spec.version})"
     begin
       build = test_gem spec
     rescue Tinderbox::BuildError, Tinderbox::InstallError => e
@@ -228,7 +258,8 @@ class Tinderbox::GemTinderbox
   end
 
   ##
-  # Tests the gem +spec+ and returns a Build containing its results.
+  # Tests the Gem::Specification +spec+ and returns a Build containing its
+  # results.
 
   def test_gem(spec)
     runner = Tinderbox::GemRunner.new spec.name, spec.version.to_s, root
