@@ -125,7 +125,7 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     assert_equal '', out.read
     err = err.read.split "\n"
     assert_equal "*** Checking #{@spec.full_name}", err.shift
-    assert_equal "*** Igniting (http://firebrigade.example.com/version/show/gem_one/0.0.2)", err.shift
+    assert_equal "*** Igniting (http://firebrigade.example.com/gem/show/gem_one/0.0.2)", err.shift
     assert_equal "*** I lit #{@spec.full_name} on fire!", err.shift
     assert_empty err
   end
@@ -144,7 +144,7 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     assert_equal '', out.read
     err = err.read.split "\n"
     assert_equal "*** Checking #{@spec.full_name}", err.shift
-    assert_equal "*** Igniting (http://firebrigade.example.com/version/show/gem_one/0.0.2)", err.shift
+    assert_equal "*** Igniting (http://firebrigade.example.com/gem/show/gem_one/0.0.2)", err.shift
     assert_equal "*** Failed to install (Tinderbox::InstallError)", err.shift
     assert_empty err
   end
@@ -163,7 +163,7 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     assert_equal '', out.read
     err = err.read.split "\n"
     assert_equal "*** Checking #{@spec.full_name}", err.shift
-    assert_equal "*** Igniting (http://firebrigade.example.com/version/show/gem_one/0.0.2)",
+    assert_equal "*** Igniting (http://firebrigade.example.com/gem/show/gem_one/0.0.2)",
                  err.shift
     assert_equal "*** Failed to install (Tinderbox::ManualInstallError)",
                  err.shift

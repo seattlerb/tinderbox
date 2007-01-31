@@ -226,7 +226,7 @@ class Tinderbox::GemTinderbox
     version_id = @fc.get_version_id spec
     return if tested? version_id
 
-    $stderr.puts "*** Igniting (http://#{@host}/version/show/#{spec.name}/#{spec.version})"
+    $stderr.puts "*** Igniting (http://#{@host}/gem/show/#{spec.name}/#{spec.version})"
     begin
       build = test_gem spec
     rescue Tinderbox::BuildError, Tinderbox::InstallError => e
