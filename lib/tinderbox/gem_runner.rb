@@ -74,7 +74,8 @@ class Tinderbox::GemRunner
     @gem_version = gem_version
 
     @remote_installer = Gem::RemoteInstaller.new :include_dependencies => true,
-                                                 :cache_dir => @cache_dir
+                                                 :cache_dir => @cache_dir,
+                                                 :wrappers => true
     @remote_installer.ui = Gem::SilentUI.new
     @gemspec = nil
     @installed_gems = nil
@@ -361,7 +362,9 @@ class Tinderbox::GemRunner
   # Path to testrb
 
   def testrb
-    testrb_exe = 'testrb' + (RUBY_PLATFORM =~ /mswin/ ? '.bat' : '')
+    Config::CONFIG['ruby_install_name'] =~ /ruby/
+    testrb_exe = "testrb#{$'}"
+    testrb_exe += '.bat' if RUBY_PLATFORM =~ /mswin/
     File.join Config::CONFIG['bindir'], testrb_exe
   end
 

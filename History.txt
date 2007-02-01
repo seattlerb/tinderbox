@@ -1,3 +1,8 @@
+== 1.0.1
+
+* Find testrb when ruby was built with --program-suffix=
+* Install wrappers because JRuby doesn't have a #symlink
+
 == 1.0.0 / 2007-01-30
 
 * Tests gems in a sandbox

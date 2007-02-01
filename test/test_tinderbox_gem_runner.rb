@@ -563,11 +563,18 @@ test:
     util_test_assertions :spec, true, -1
   end
 
-  def test_testrb # HACK lame
+  def test_testrb
     testrb_exe = 'testrb' + (RUBY_PLATFORM =~ /mswin/ ? '.bat' : '')
     testrb = File.join Config::CONFIG['bindir'], testrb_exe
 
     assert_equal testrb, @tgr.testrb
+
+    orig_ruby_install_name = Config::CONFIG['ruby_install_name']
+    Config::CONFIG['ruby_install_name'] = 'ruby18'
+    testrb18 = testrb + '18'
+    assert_equal testrb18, @tgr.testrb
+  ensure
+    Config::CONFIG['ruby_install_name'] = orig_ruby_install_name
   end
 
   def util_test_add_Makefile
