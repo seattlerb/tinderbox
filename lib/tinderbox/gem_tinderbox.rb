@@ -196,6 +196,8 @@ class Tinderbox::GemTinderbox
   # GemTinderbox won't pound on Firebrigade.)
 
   def run
+    test_sanity
+
     @seen_gem_names = []
     @target_id ||= @fc.get_target_id
 
@@ -265,6 +267,13 @@ class Tinderbox::GemTinderbox
     runner = Tinderbox::GemRunner.new spec.name, spec.version.to_s, root
     runner.timeout = @timeout
     runner.run
+  end
+
+  ##
+  # Makes sure Tinderbox is sane and in a sane environment
+
+  def test_sanity
+    tgr = Tinderbox::GemRunner.new 'tinderbox', Tinderbox::VERSION, root
   end
 
   ##
