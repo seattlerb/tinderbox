@@ -128,18 +128,6 @@ class Tinderbox::GemRunner
   end
 
   ##
-  # Install the sources gem into the sandbox gem repository.
-
-  def install_sources
-    sources_gem = Dir[File.join(@host_gem_dir, 'cache', 'sources-*gem')].max
-
-    installer = Gem::Installer.new sources_gem
-    installer.install
-
-    FileUtils.copy @host_gem_source_index, Gem::SourceInfoCache.new.cache_file
-  end
-
-  ##
   # Installs the rake gem into the sandbox
 
   def install_rake
@@ -148,7 +136,7 @@ class Tinderbox::GemRunner
 
     retries = 5
 
-    rake_version = Gem::SourceInfoCache.search(/^rake$/).last.version.to_s
+    rake_version = Gem::SourceInfoCache.search('rake').last.version.to_s
 
     begin
       @installed_gems.push(*@remote_installer.install('rake', rake_version))
@@ -199,7 +187,7 @@ class Tinderbox::GemRunner
 
   def passed?(process_status)
     tested = @log =~ /^\d+ tests, \d+ assertions, \d+ failures, \d+ errors$/ ||
-             @log =~ /^\d+ specifications?, \d+ failures?$/
+             @log =~ /^\d+ (specification|example)s?, \d+ failures?$/
     @successful = process_status.exitstatus == 0
 
     if not tested and @successful then
@@ -214,7 +202,8 @@ class Tinderbox::GemRunner
       @log << "!!! Project has broken spec target, exited with 0 after spec failure\n" if @successful
       @successful = false
     elsif (@log =~ / 0 assertions/ or @log !~ / \d+ assertions/) and
-          (@log =~ /0 specifications/ or @log !~ /\d+ specification/) then
+          (@log =~ /0 (specification|example)s/ or # HACK /^0 ?
+           @log !~ /\d+ (specification|example)/) then
       @successful = false
       @log << "!!! No output indicating success found\n"
     end
@@ -253,7 +242,6 @@ class Tinderbox::GemRunner
   def run
     sandbox_cleanup # don't clean up at the end so we can review
     sandbox_setup
-    install_sources
 
     build = Tinderbox::Build.new
     full_log = []
@@ -269,6 +257,8 @@ class Tinderbox::GemRunner
     build.duration = @duration
     build.successful = @successful
     build.log = full_log.join "\n"
+
+    Gem::SourceInfoCache.cache.write_cache
 
     return build
   end
@@ -315,6 +305,7 @@ class Tinderbox::GemRunner
 
     ENV['GEM_HOME'] = @sandbox_dir
     Gem.clear_paths
+    Gem::SourceInfoCache.reset
   end
 
   ##
@@ -349,7 +340,7 @@ class Tinderbox::GemRunner
       end
 
       if File.directory? 'spec' then
-        install_rspec 'spec DIRECTORY' unless rake_installed?
+        install_rspec 'spec DIRECTORY' unless rspec_installed?
         return if run_command "#{ruby} -S spec spec/*"
       end
 

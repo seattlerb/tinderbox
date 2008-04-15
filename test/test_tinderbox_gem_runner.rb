@@ -1,6 +1,7 @@
 require 'test/unit'
 
 require 'rubygems'
+require 'rubygems/test_utilities'
 require 'test/zentest_assertions'
 
 require 'rbconfig'
@@ -36,17 +37,23 @@ end
 class TestTinderboxGemRunner < Test::Unit::TestCase
 
   def setup
+    Gem.configuration.verbose = false
+    @gem_repo = 'http://gems.example.com/'
+    @fetcher = Gem::FakeFetcher.new
+    Gem::RemoteFetcher.fetcher = @fetcher
+    Gem.sources.replace [@gem_repo]
+
     @gem_name = 'some_test_gem'
     @gem_version = '1.2.3'
     @gem_full_name = "#{@gem_name}-#{@gem_version}"
 
     @rake = Gem::Specification.new
     @rake.name = 'rake'
-    @rake.version = '999.999.999'
+    @rake.version = '999'
 
     @rspec = Gem::Specification.new
     @rspec.name = 'rspec'
-    @rspec.version = '999.999.999'
+    @rspec.version = '999'
 
     @gemspec = Gem::Specification.new
     @gemspec.name = @gem_name
@@ -54,7 +61,14 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     @gemspec.loaded_from = File.join Gem.dir, 'gems', @gem_full_name
     @gemspec.require_paths = ['lib', 'other']
 
-    @root = File.join Dir.tmpdir, 'tinderbox_test'
+    @source_index = Gem::SourceIndex.new
+    @source_index.add_spec @gemspec
+    @source_index.add_spec @rake
+    @source_index.add_spec @rspec
+    @fetcher.data["#{@gem_repo}Marshal.#{Gem.marshal_version}"] =
+      Marshal.dump @source_index
+
+    @root = File.join Dir.tmpdir, "tinderbox_test_#{$$}"
     @sandbox_dir = File.join @root, 'sandbox'
     @tgr = Tinderbox::GemRunner.new @gem_name, @gem_version, @root
 
@@ -65,6 +79,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     FileUtils.remove_dir @root rescue nil
     ENV['GEM_HOME'] = nil
     Gem.clear_paths
+    Gem::SourceInfoCache.reset
   end
 
   def test_gem_lib_paths
@@ -75,9 +90,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
 
   def test_initialize
     assert_equal @sandbox_dir, @tgr.sandbox_dir
-    assert_equal File.join(Config::CONFIG['libdir'], 'ruby', 'gems',
-                           Config::CONFIG['ruby_version']),
-                 @tgr.host_gem_dir
+    assert_equal Gem.dir, @tgr.host_gem_dir
     assert_equal @gem_name, @tgr.gem_name
     assert_equal @gem_version, @tgr.gem_version
     assert_equal nil, @tgr.gemspec
@@ -91,7 +104,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
 
   def test_install
     @tgr.sandbox_setup
-    @tgr.install_sources
+
     @tgr.install
 
     deny_empty Dir[File.join(@sandbox_dir, 'gems', @gem_full_name)]
@@ -104,7 +117,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     def ri.install(*a) raise Gem::InstallError end
 
     @tgr.sandbox_setup
-    @tgr.install_sources
+
     assert_raise Tinderbox::InstallError do
       @tgr.install
     end
@@ -117,7 +130,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     def ri.install(*a) raise Gem::Installer::ExtensionBuildError end
 
     @tgr.sandbox_setup
-    @tgr.install_sources
+
     assert_raise Tinderbox::BuildError do
       @tgr.install
     end
@@ -130,7 +143,6 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     def ri.install(*a) raise Gem::RemoteInstallationCancelled end
 
     @tgr.sandbox_setup
-    @tgr.install_sources
 
     assert_raise Tinderbox::ManualInstallError do
       @tgr.install
@@ -152,7 +164,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
 
     @tgr.sandbox_setup
     @tgr.installed_gems = []
-    @tgr.install_sources
+
     log = @tgr.install_rake
 
     deny_empty Dir[File.join(@sandbox_dir, 'gems', 'rake-*')]
@@ -164,7 +176,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
 
     assert_equal expected, log
   ensure
-    Gem::SourceInfoCache.instance_variable_set :@cache, nil
+    Gem::SourceInfoCache.reset
   end
 
   def test_install_rspec
@@ -182,7 +194,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
 
     @tgr.sandbox_setup
     @tgr.installed_gems = []
-    @tgr.install_sources
+
     log = @tgr.install_rspec 'message'
 
     deny_empty Dir[File.join(@sandbox_dir, 'gems', 'rspec-*')]
@@ -194,15 +206,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
 
     assert_equal expected, log
   ensure
-    Gem::SourceInfoCache.instance_variable_set :@cache, nil
-  end
-
-  def test_install_sources
-    @tgr.sandbox_setup
-    @tgr.install_sources
-
-    assert_equal true, File.exist?(File.join(@sandbox_dir, 'source_cache'))
-    deny_empty Dir["#{File.join @sandbox_dir, 'gems', 'sources'}-*"]
+    Gem::SourceInfoCache.reset
   end
 
   def test_passed_eh
@@ -382,7 +386,8 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
   def test_run
     build = @tgr.run
 
-    assert_equal true, File.exist?(File.join(@sandbox_dir, 'source_cache'))
+    assert_equal true, File.exist?(File.join(@sandbox_dir, 'source_cache')),
+                 'source_cache exists in sandbox'
 
     assert_equal 0, build.duration
     assert_equal false, build.successful
@@ -407,7 +412,8 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
 
     build = @tgr.run
 
-    assert_equal true, File.exist?(File.join(@sandbox_dir, 'source_cache'))
+    assert_equal true, File.exist?(File.join(@sandbox_dir, 'source_cache')),
+                 'source_cache exists in sandbox'
 
     assert_equal 1.0, build.duration
     assert_equal true, build.successful
@@ -526,7 +532,7 @@ test:
 
   def test_test_Rakefile_spec_fail
     util_test_add_Rakefile :spec
-    util_test_assertions :spec, false, -1
+    util_test_assertions :spec, false, -5
   end
 
   def test_test_Rakefile_spec_pass
@@ -536,7 +542,7 @@ test:
 
   def test_test_Rakefile_test_fail
     util_test_add_Rakefile
-    util_test_assertions :test, false, -1
+    util_test_assertions :test, false, -5
   end
 
   def test_test_Rakefile_test_pass
@@ -591,10 +597,11 @@ test:
 
   def util_test_add_Rakefile(type = :test)
     util_test_setup
+
     File.open File.join(@gemspec.full_gem_path, 'Rakefile'), 'w' do |fp|
       fp.write <<-EOF
 require 'rake/testtask'
-require 'spec/rake/spectask
+require 'spec/rake/spectask'
 
 EOF
 
@@ -673,10 +680,10 @@ end
                when :test then
                  "1 tests, 1 assertions, #{failures} failures, 0 errors"
                when :spec then
-                 "1 specification, #{failures} failure#{passes ? 's' : ''}"
+                 "1 example, #{failures} failure#{passes ? 's' : ''}"
                end
 
-    #log.each_with_index do |l, i| puts "#{i}\t#{l[0..10]}" end
+    #log.each_with_index do |l, i| puts "#{i}\t#{l[0..30]}" end
     assert_equal expected, log[count_index]
   end
 
@@ -685,8 +692,11 @@ end
     @util_test_setup = true
     @tgr.installed_gems = [@rake]
 
+    Gem.configuration
     ENV['GEM_HOME'] = @sandbox_dir
     Gem.clear_paths
+    Gem::SourceInfoCache.reset
+
     @gemspec.loaded_from = File.join Gem.dir, 'gems', @gem_full_name
     FileUtils.mkpath @gemspec.full_gem_path
   end

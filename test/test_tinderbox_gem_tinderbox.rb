@@ -1,5 +1,6 @@
 require 'test/unit'
 require 'rubygems'
+require 'rubygems/test_utilities'
 require 'test/zentest_assertions'
 require 'rc_rest/net_http_stub'
 require 'rc_rest/uri_stub'
@@ -28,37 +29,38 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     URI::HTTP.uris = []
     URI::HTTP.responses = []
 
+    @root = File.join Dir.tmpdir, "tinderbox_test_#{$$}"
+    @sandbox_dir = File.join @root, 'sandbox'
+
+    Gem.configuration.verbose = false # HACK resets Gem.sources
+    ENV['GEM_HOME'] = @sandbox_dir
+    Gem.clear_paths
+    Gem::SourceInfoCache.reset
+
+    @gem_repo = 'http://gems.example.com/'
+    @fetcher = Gem::FakeFetcher.new
+    Gem::RemoteFetcher.fetcher = @fetcher
+    Gem.sources.replace [@gem_repo]
+
     @tgt = Tinderbox::GemTinderbox.new 'firebrigade.example.com', 'username',
                                        'password'
-
-    sic = {}
-    def sic.refresh
-    end
-
-    def sic.cache_data
-      o = Object.new
-      def o.each(&block)
-        spec = Gem::Specification.new
-        spec.name = 'gem_one'
-        spec.version = '0.0.2'
-        si = Gem::SourceIndex.new 'gem_one-0.0.2' => spec
-        sic_e = Gem::SourceInfoCacheEntry.new si, 0
-        yield 'http://gems.example.com', sic_e
-      end
-      o
-    end
-
-    @tgt.source_info_cache = sic
 
     @spec = Gem::Specification.new
     @spec.name = 'gem_one'
     @spec.version = '0.0.2'
     @spec.rubyforge_project = 'gem'
+
+    @source_index = Gem::SourceIndex.new
+    @source_index.add_spec @spec
+
+    @fetcher.data["#{@gem_repo}Marshal.#{Gem.marshal_version}"] =
+      Marshal.dump @source_index
   end
 
   def test_new_gems
     specs = @tgt.new_gems.map { |s| s.full_name }
     assert_equal ['gem_one-0.0.2'], specs
+
     specs = @tgt.new_gems.map { |s| s.full_name }
     assert_equal [], specs, 'Your rubygems needs Gem::Specification#eql?'
   end
@@ -84,9 +86,9 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
 </ok>
     EOF
 
-    o = Object.new
-    def o.refresh() raise Gem::RemoteFetcher::FetchError end
-    @tgt.instance_variable_set :@source_info_cache, o
+    @fetcher.data["#{@gem_repo}Marshal.#{Gem.marshal_version}"] = proc do
+      raise Gem::RemoteFetcher::FetchError
+    end
 
     util_test_run_error "Gem::RemoteFetcher::FetchError"
   end
@@ -201,7 +203,7 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
   def test_update_gems
     o = Object.new
     def o.refreshed?() @refreshed end
-    def o.refresh() @refreshed = true end
+    def o.refresh(arg = nil) @refreshed = true end
 
     @tgt.instance_variable_set :@source_info_cache, o
 

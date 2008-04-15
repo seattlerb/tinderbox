@@ -1,6 +1,5 @@
 require 'test/unit'
-require 'rubygems/version'
-require 'rubygems/rubygems_version'
+require 'rubygems'
 require 'tinderbox/gem_runner'
 
 class TestSanity < Test::Unit::TestCase

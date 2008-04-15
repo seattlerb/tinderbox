@@ -177,8 +177,8 @@ class Tinderbox::GemTinderbox
 
     latest_gems = {}
     source_info_cache.cache_data.each do |source, sic_e|
-      sic_e.source_index.latest_specs.each do |name, spec|
-        latest_gems[name] = spec
+      sic_e.source_index.latest_specs.each do |spec|
+        latest_gems[spec.name] = spec
       end
     end
 
@@ -284,10 +284,10 @@ class Tinderbox::GemTinderbox
   end
 
   ##
-  # Refreshes Rubygems' source info cache
+  # Refreshes RubyGems' source info cache
 
   def update_gems
-    source_info_cache.refresh
+    source_info_cache.refresh true
   end
 
 end
