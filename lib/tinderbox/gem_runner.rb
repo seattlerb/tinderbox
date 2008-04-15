@@ -19,6 +19,11 @@ require 'rubygems/remote_installer'
 class Tinderbox::GemRunner
 
   ##
+  # The version of RubyGems required for Tinderbox::GemRunner to work.
+
+  REQUIRED_RUBYGEMS_VERSION = Gem::Requirement.new '>= 1.1.1.1705'
+
+  ##
   # Raised when the tinderbox job times out.
 
   class RunTimeout < Timeout::Error; end

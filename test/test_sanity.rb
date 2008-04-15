@@ -6,9 +6,9 @@ class TestSanity < Test::Unit::TestCase
 
   def test_rubygems_version
     rubygems_version = Gem::Version.new Gem::RubyGemsVersion
-    required_version = Gem::Version.new '0.9.1'
+    required_version = Tinderbox::GemRunner::REQUIRED_RUBYGEMS_VERSION
 
-    assert_operator required_version, :<=, rubygems_version
+    assert required_version.satisfied_by?(rubygems_version)
   end
 
   def test_testrb_exists

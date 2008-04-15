@@ -2,7 +2,9 @@
 
 require 'rubygems'
 require 'hoe'
-require './lib/tinderbox.rb'
+$:.unshift 'lib'
+require 'tinderbox'
+require 'tinderbox/gem_runner'
 
 Hoe.new 'tinderbox', Tinderbox::VERSION do |p|
   p.rubyforge_name = 'seattlerb'
@@ -18,7 +20,8 @@ Hoe.new 'tinderbox', Tinderbox::VERSION do |p|
   p.extra_deps << ['rspec', '>= 0.7.5.1']
   p.extra_deps << ['rake', '>= 0.8']
 
-  p.spec_extras[:required_rubygems_version] = '>= 1.1.1.1704'
+  p.spec_extras[:required_rubygems_version] =
+    Tinderbox::GemRunner::REQUIRED_RUBYGEMS_VERSION
 end
 
 # vim: syntax=Ruby
