@@ -8,7 +8,7 @@ require 'stringio'
 require 'timeout'
 
 require 'rubygems'
-require 'rubygems/remote_installer'
+require 'rubygems/dependency_installer'
 
 ##
 # Tinderbox::GemRunner tests a gem and creates a Tinderbox::Build holding the
@@ -21,7 +21,7 @@ class Tinderbox::GemRunner
   ##
   # The version of RubyGems required for Tinderbox::GemRunner to work.
 
-  REQUIRED_RUBYGEMS_VERSION = Gem::Requirement.new '>= 1.1.1.1705'
+  REQUIRED_RUBYGEMS_VERSION = Gem::Requirement.new '>= 1.1.1.1707'
 
   ##
   # Raised when the tinderbox job times out.
@@ -67,7 +67,7 @@ class Tinderbox::GemRunner
     root = File.join Dir.pwd, 'tinderbox' if root.nil?
     raise ArgumentError, 'root must not be relative' unless root[0] == ?/
     @sandbox_dir = File.expand_path File.join(root, 'sandbox')
-    @cache_dir = File.expand_path File.join(root, 'cache')
+    @cache_dir = root # cache drops files into root/cache
     FileUtils.mkpath @cache_dir unless File.exist? @cache_dir
 
     ENV['GEM_HOME'] = nil
@@ -78,10 +78,9 @@ class Tinderbox::GemRunner
     @gem_name = gem_name
     @gem_version = gem_version
 
-    @remote_installer = Gem::RemoteInstaller.new :include_dependencies => true,
-                                                 :cache_dir => @cache_dir,
-                                                 :wrappers => true
-    @remote_installer.ui = Gem::SilentUI.new
+    @installer = Gem::DependencyInstaller.new :install_dir => @sandbox_dir,
+                                              :cache_dir => @cache_dir
+    @installer.ui = Gem::SilentUI.new
     @gemspec = nil
     @installed_gems = nil
 
@@ -106,7 +105,7 @@ class Tinderbox::GemRunner
     retries = 5
 
     begin
-      @installed_gems = @remote_installer.install @gem_name, @gem_version
+      @installed_gems = @installer.install @gem_name, @gem_version
       @gemspec = @installed_gems.first
       "### #{@installed_gems.map { |s| s.full_name }.join "\n### "}"
     rescue Gem::RemoteInstallationCancelled => e
@@ -144,7 +143,7 @@ class Tinderbox::GemRunner
     rake_version = Gem::SourceInfoCache.search('rake').last.version.to_s
 
     begin
-      @installed_gems.push(*@remote_installer.install('rake', rake_version))
+      @installed_gems.push(*@installer.install('rake', rake_version))
       log << "### rake installed, even though you claim not to need it"
     rescue Gem::InstallError, Gem::GemNotFoundException => e
       log << "Installation of rake failed (#{e.class}):\n\n#{e.message}"
@@ -171,7 +170,7 @@ class Tinderbox::GemRunner
     rspec_version = Gem::SourceInfoCache.search(/^rspec$/).last.version.to_s
 
     begin
-      @installed_gems.push(*@remote_installer.install('rspec', rspec_version))
+      @installed_gems.push(*@installer.install('rspec', rspec_version))
       log << "### RSpec installed, even though you claim not to need it"
     rescue Gem::InstallError, Gem::GemNotFoundException => e
       log << "Installation of RSpec failed (#{e.class}):\n\n#{e.message}"

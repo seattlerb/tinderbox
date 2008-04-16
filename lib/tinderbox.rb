@@ -7,7 +7,7 @@ module Tinderbox
   ##
   # This is the version of Tinderbox you are currently running.
 
-  VERSION = '1.0.0'
+  VERSION = '2.0.0'
 
   ##
   # Indicates an error while installing software we're going to test.
