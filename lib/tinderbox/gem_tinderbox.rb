@@ -17,6 +17,11 @@ require 'firebrigade/cache'
 class Tinderbox::GemTinderbox
 
   ##
+  # Only run through tinderbox gems once.
+
+  attr_accessor :once
+
+  ##
   # Root directory that the GemTinderbox will use.
 
   attr_accessor :root
@@ -43,20 +48,26 @@ class Tinderbox::GemTinderbox
     end
 
     options[:Daemon] ||= false
-    options[:Timeout] ||= 120
+    options[:Once] ||= false
+    options[:Timeout] ||= 300
 
     opts = OptionParser.new do |opts|
-      opts.banner = "Usage: #{File.basename $0} [options]"
-      opts.separator ''
-      opts.separator 'Options may also be set in the options file ~/.gem_tinderbox.'
-      opts.separator ''
-      opts.separator 'Example ~/.gem_tinderbox'
-      opts.separator "\tServer=firebrigade.example.com"
-      opts.separator "\tUsername=my username"
-      opts.separator "\tPassword=my password"
-      opts.separator "\tRoot=/path/to/tinderbox/root"
+      opts.program_name = File.basename $0
+      opts.version = Tinderbox::VERSION
 
-      opts.separator ''
+      opts.banner = <<-EOF
+Usage: #{opts.program_name} [options]
+
+Options may also be set in the options file ~/.gem_tinderbox.
+
+Example ~/.gem_tinderbox
+\tServer=firebrigade.example.com
+\tUsername=my username
+\tPassword=my password
+\tRoot=/path/to/tinderbox/root
+\tOnce=false
+
+      EOF
 
       opts.on("-s", "--server HOST",
               "Firebrigade server host",
@@ -101,10 +112,13 @@ class Tinderbox::GemTinderbox
               "Default: #{options[:Daemon]}") do |daemon|
         options[:Daemon] = true
       end
-    end
 
-    opts.version = Tinderbox::VERSION
-    opts.release = nil
+      opts.on("-o", "--once",
+              "Only run through untested gems once",
+              "Default: #{options[:Once]}") do |once|
+        options[:Once] = true
+      end
+    end
 
     opts.parse! args
 
@@ -134,6 +148,7 @@ class Tinderbox::GemTinderbox
     tinderbox = new options[:Server], options[:Username], options[:Password]
     tinderbox.root = options[:Root]
     tinderbox.timeout = options[:Timeout]
+    tinderbox.once = options[:Once]
 
     if options[:Daemon] then
       require 'webrick/server'
@@ -160,8 +175,9 @@ class Tinderbox::GemTinderbox
     @password = password
     @root = nil
     @timeout = 120
+    @once = false
 
-    @source_info_cache = nil 
+    @source_info_cache = nil
     @seen_gem_names = []
     @wait_time = 300
 
@@ -203,6 +219,7 @@ class Tinderbox::GemTinderbox
 
     loop do
       new_gems.each do |spec| run_spec spec end
+      break if @once
       sleep @wait_time
     end
   rescue RCRest::CommunicationError, Gem::RemoteFetcher::FetchError,

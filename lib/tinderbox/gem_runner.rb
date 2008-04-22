@@ -106,7 +106,7 @@ class Tinderbox::GemRunner
 
     begin
       @installed_gems = @installer.install @gem_name, @gem_version
-      @gemspec = @installed_gems.first
+      @gemspec = @installed_gems.find { |spec| spec.name == @gem_name }
       "### #{@installed_gems.map { |s| s.full_name }.join "\n### "}"
     rescue Gem::RemoteInstallationCancelled => e
       raise Tinderbox::ManualInstallError,
