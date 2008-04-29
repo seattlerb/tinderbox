@@ -15,20 +15,6 @@ class Tinderbox::GemRunner
   attr_reader :duration, :successful
 end
 
-class Gem::DependencyInstaller
-  alias orig_install install
-  def install(gem_name, version = '1')
-    full_gem_name = "#{gem_name}-#{version}"
-    gem_path = File.join Gem.dir, 'gems', full_gem_name
-    FileUtils.mkpath gem_path
-    s = Gem::Specification.new
-    s.name = gem_name
-    s.version = version
-    s.loaded_from = File.join Gem.dir, 'gems', full_gem_name
-    return [s]
-  end
-end
-
 class Gem::SourceInfoCache
   attr_writer :cache_data
   class << self; attr_writer :cache; end
@@ -71,6 +57,18 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
     @root = File.join Dir.tmpdir, "tinderbox_test_#{$$}"
     @sandbox_dir = File.join @root, 'sandbox'
     @tgr = Tinderbox::GemRunner.new @gem_name, @gem_version, @root
+
+    installer = @tgr.installer
+    def installer.install(gem_name, version = '1')
+      full_gem_name = "#{gem_name}-#{version}"
+      gem_path = File.join Gem.dir, 'gems', full_gem_name
+      FileUtils.mkpath gem_path
+      s = Gem::Specification.new
+      s.name = gem_name
+      s.version = version
+      s.loaded_from = File.join Gem.dir, 'gems', full_gem_name
+      return [s]
+    end
 
     @util_test_setup = false
   end
@@ -116,6 +114,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
 
   def test_install_bad_gem
     installer = @tgr.installer
+    class << installer; remove_method :install; end
     def installer.install(*a) raise Gem::InstallError end
 
     @tgr.sandbox_setup
@@ -129,6 +128,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
 
   def test_install_ext_build_error
     installer = @tgr.installer
+    class << installer; remove_method :install; end
     def installer.install(*a) raise Gem::Installer::ExtensionBuildError end
 
     @tgr.sandbox_setup
@@ -142,6 +142,7 @@ class TestTinderboxGemRunner < Test::Unit::TestCase
 
   def test_install_wrong_platform
     installer = @tgr.installer
+    class << installer; remove_method :install; end
     def installer.install(*a) raise Gem::RemoteInstallationCancelled end
 
     @tgr.sandbox_setup

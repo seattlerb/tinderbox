@@ -44,6 +44,7 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
 
     @tgt = Tinderbox::GemTinderbox.new 'firebrigade.example.com', 'username',
                                        'password'
+    @tgt.root = @root
 
     @spec = Gem::Specification.new
     @spec.name = 'gem_one'
@@ -55,6 +56,10 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
 
     @fetcher.data["#{@gem_repo}Marshal.#{Gem.marshal_version}"] =
       Marshal.dump @source_index
+  end
+
+  def teardown
+    FileUtils.rm_r @root if File.exist? @root
   end
 
   def test_new_gems
@@ -93,6 +98,76 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     util_test_run_error "Gem::RemoteFetcher::FetchError"
   end
 
+  def test_run_missing_gem
+    @tgt.once = true
+
+    Net::HTTP.responses << <<-EOF
+<ok>
+  <target>
+    <id>5</id>
+    <platform>fake platform</platform>
+    <release_date>fake release_date</release_date>
+    <username>fake username</username>
+    <version>fake version</version>
+  </target>
+</ok>
+    EOF
+
+    Net::HTTP.responses << <<-EOF
+<ok>
+  <owner>
+    <id>1</id>
+    <name>gem_one</name>
+  </owner>
+</ok>
+    EOF
+
+    Net::HTTP.responses << <<-EOF
+<ok>
+  <project>
+    <id>2</id>
+    <name>gem_one</name>
+    <owner_id>1</owner_id>
+  </project>
+</ok>
+    EOF
+
+    Net::HTTP.responses << <<-EOF
+<ok>
+  <version>
+    <id>3</id>
+    <name>0.0.2</name>
+    <project_id>2</project_id>
+  </version>
+</ok>
+    EOF
+
+    URI::HTTP.responses << <<-EOF
+<error>
+  <message>No such build exists</message>
+</error>
+    EOF
+
+    @fetcher.data["#{@gem_repo}gems/gem_one-0.0.2.gem"] = proc do
+      raise Gem::RemoteFetcher::FetchError
+    end
+
+    out, err = util_capture do
+      @tgt.run
+    end
+
+    assert_equal '', out.string
+
+    err = err.string.split "\n"
+
+    assert_equal '*** Checking gem_one-0.0.2', err.shift
+    assert_equal '*** Igniting (http://firebrigade.example.com/gem/show/gem_one/0.0.2)', err.shift
+    assert_equal 'Failed to download gem_one-0.0.2, skipping', err.shift
+    assert_equal 'Gem::RemoteFetcher::FetchError', err.shift
+
+    assert_empty err
+  end
+
   def test_run_remote_source_exception
     Net::HTTP.responses << proc do |req|
       raise Gem::RemoteSourceException, 'HTTP Response 403'
@@ -118,14 +193,18 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
 </ok>
     EOF
 
-    build = nil
-
-    out, err = util_capture do
-      build = @tgt.run_spec @spec
+    def @tgt.test_gem(spec)
+      b = Tinderbox::Build.new
+      b.successful = false
+      b
     end
 
-    assert_equal '', out.read
-    err = err.read.split "\n"
+    out, err = util_capture do
+      @tgt.run_spec @spec
+    end
+
+    assert_equal '', out.string
+    err = err.string.split "\n"
     assert_equal "*** Checking #{@spec.full_name}", err.shift
     assert_equal "*** Igniting (http://firebrigade.example.com/gem/show/gem_one/0.0.2)", err.shift
     assert_equal "*** I lit #{@spec.full_name} on fire!", err.shift
@@ -143,8 +222,8 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     end
 
     deny_includes @spec.full_name, @tgt.seen_gem_names
-    assert_equal '', out.read
-    err = err.read.split "\n"
+    assert_equal '', out.string
+    err = err.string.split "\n"
     assert_equal "*** Checking #{@spec.full_name}", err.shift
     assert_equal "*** Igniting (http://firebrigade.example.com/gem/show/gem_one/0.0.2)", err.shift
     assert_equal "*** Failed to install (Tinderbox::InstallError)", err.shift
@@ -162,8 +241,8 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     end
 
     assert_includes @spec, @tgt.seen_gem_names
-    assert_equal '', out.read
-    err = err.read.split "\n"
+    assert_equal '', out.string
+    err = err.string.split "\n"
     assert_equal "*** Checking #{@spec.full_name}", err.shift
     assert_equal "*** Igniting (http://firebrigade.example.com/gem/show/gem_one/0.0.2)",
                  err.shift
@@ -180,8 +259,8 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
       @tgt.run_spec @spec
     end
 
-    assert_equal '', out.read
-    err = err.read.split "\n"
+    assert_equal '', out.string
+    err = err.string.split "\n"
     assert_equal "*** Checking #{@spec.full_name}", err.shift
     assert_empty err
   end
@@ -217,9 +296,9 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
       @tgt.run
     end
 
-    assert_equal '', out.read
+    assert_equal '', out.string
 
-    err = err.read.split "\n"
+    err = err.string.split "\n"
     assert_equal message, err.first
     assert_match(/Will retry at/, err.last)
   end
@@ -230,7 +309,7 @@ class TestTinderboxGemTinderbox < Test::Unit::TestCase
     fc.owners['gem'] = 100
     fc.projects[[100, 'gem_one']] = 101
     fc.versions[[101, '0.0.2']] = 102
-    
+
     fc
   end
 

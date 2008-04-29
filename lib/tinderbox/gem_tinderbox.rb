@@ -179,7 +179,7 @@ Example ~/.gem_tinderbox
 
     @source_info_cache = nil
     @seen_gem_names = []
-    @wait_time = 300
+    @wait_time = 1200
 
     @fc = Firebrigade::Cache.new @host, @username, @password
     @target_id = nil
@@ -218,7 +218,15 @@ Example ~/.gem_tinderbox
     @target_id ||= @fc.get_target_id
 
     loop do
-      new_gems.each do |spec| run_spec spec end
+      new_gems.each do |spec|
+        begin
+          run_spec spec
+        rescue Gem::RemoteFetcher::FetchError => e
+          $stderr.puts "Failed to download #{spec.full_name}, skipping"
+          $stderr.puts e.message
+          next
+        end
+      end
       break if @once
       sleep @wait_time
     end
