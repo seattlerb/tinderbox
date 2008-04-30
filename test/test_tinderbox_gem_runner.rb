@@ -484,6 +484,24 @@ hi
     assert_equal "#{@sandbox_dir} already exists", e.message
   end
 
+  def test_spec
+    orig_ruby_install_name = Config::CONFIG['ruby_install_name']
+
+    Config::CONFIG['ruby_install_name'] = 'ruby'
+    spec_exe = 'spec' + (RUBY_PLATFORM =~ /mswin/ ? '.bat' : '')
+    spec_exe = File.join Config::CONFIG['bindir'], spec_exe
+    spec = File.exist?(spec_exe) ? spec_exe : 'spec' # HACK
+
+    assert_equal spec_exe, @tgr.spec
+
+    Config::CONFIG['ruby_install_name'] = 'ruby18'
+    spec_exe18 = spec_exe + '18'
+    spec18 = File.exist?(spec_exe18) ? spec_exe18 : 'spec' # HACK
+    assert_equal spec18, @tgr.spec
+  ensure
+    Config::CONFIG['ruby_install_name'] = orig_ruby_install_name
+  end
+
   def test_test_best_effort
     util_test_setup
 
@@ -573,12 +591,13 @@ test:
   end
 
   def test_testrb
+    orig_ruby_install_name = Config::CONFIG['ruby_install_name']
+    Config::CONFIG['ruby_install_name'] = 'ruby'
     testrb_exe = 'testrb' + (RUBY_PLATFORM =~ /mswin/ ? '.bat' : '')
     testrb = File.join Config::CONFIG['bindir'], testrb_exe
 
     assert_equal testrb, @tgr.testrb
 
-    orig_ruby_install_name = Config::CONFIG['ruby_install_name']
     Config::CONFIG['ruby_install_name'] = 'ruby18'
     testrb18 = testrb + '18'
     assert_equal testrb18, @tgr.testrb

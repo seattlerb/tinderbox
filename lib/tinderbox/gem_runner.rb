@@ -313,6 +313,18 @@ class Tinderbox::GemRunner
   end
 
   ##
+  # Returns the name of RSpec's runner.
+
+  def spec
+    Config::CONFIG['ruby_install_name'] =~ /ruby/
+    spec_exe = "spec#{$'}"
+    spec_exe += '.bat' if RUBY_PLATFORM =~ /mswin/
+    spec_exe = File.join Config::CONFIG['bindir'], spec_exe
+
+    File.exist?(spec_exe) ? spec_exe : 'spec'
+  end
+
+  ##
   # Tries a best-effort at running the tests or specifications for a gem.  The
   # following commands are tried, and #test stops on the first evidence of a
   # test run.
@@ -345,7 +357,7 @@ class Tinderbox::GemRunner
 
       if File.directory? 'spec' then
         install_rspec 'spec DIRECTORY' unless rspec_installed?
-        return if run_command "#{ruby} -S spec spec/*"
+        return if run_command "#{ruby} -S #{spec} spec/*"
       end
 
       @log << "!!! could not figure out how to test #{@gemspec.full_name}"
