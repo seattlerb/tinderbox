@@ -12,6 +12,18 @@ class TestSanity < Test::Unit::TestCase
            "RubyGems #{rubygems_version} is too old, need #{required_version}"
   end
 
+  def test_spec_exists
+    runner = Tinderbox::GemRunner.new nil, nil
+
+    if File.exist? runner.spec then
+      assert true
+      return
+    end
+
+    assert system(runner.spec),
+           "Could not find testrb at #{runner.spec}"
+  end
+
   def test_testrb_exists
     runner = Tinderbox::GemRunner.new nil, nil
     assert File.exist?(runner.testrb),
