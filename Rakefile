@@ -36,6 +36,7 @@ set :ssh_key_name, 'tinderbox'
 set :rubygems, 'rubygems-1.1.1.tgz'
 set :rubygems_dir, 'rubygems-1.1.1'
 
+set :hoe_gem, 'hoe-1.5.2.gem'
 set :tinderbox_gem, 'tinderbox-2.0.0.gem'
 
 set :distfiles, File.join(File.expand_path(File.dirname(__FILE__)), 'distfiles')

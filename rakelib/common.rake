@@ -100,7 +100,8 @@ end
 remote_task :install_tinderbox do |task, args|
   run [
     "cd #{tinderbox_dir}",
-    "#{gem_bin[task.target_host]} install #{tinderbox_gem} --no-rdoc --no-ri"
+    "#{gem_bin[task.target_host]} install #{hoe_gem} --no-rdoc --no-ri",
+    "#{gem_bin[task.target_host]} install #{tinderbox_gem} --no-rdoc --no-ri",
   ].join(' && ')
 end
 
@@ -243,5 +244,6 @@ end
 remote_task :upload do
   rsync File.join(distfiles, rubygems),      "#{TINDERBOX_DIR}/"
   rsync File.join(distfiles, tinderbox_gem), "#{TINDERBOX_DIR}/"
+  rsync File.join(distfiles, hoe_gem),       "#{TINDERBOX_DIR}/"
 end
 
