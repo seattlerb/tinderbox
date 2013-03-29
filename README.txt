@@ -15,7 +15,7 @@ many different platforms as possible.
 * Submits gem test results to http://firebrigade.seattlerb.org
 * Understands test/unit and RSpec
 
-== SYNOPSYS:
+== SYNOPSIS:
 
   tinderbox_gem_run -u 'my username' -p 'my password' -s tinderbox.example.com
 
