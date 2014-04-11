@@ -10,7 +10,6 @@ require 'tinderbox/gem_runner'
 
 Hoe.new 'tinderbox', Tinderbox::VERSION do |p|
   p.developer 'Eric Hodel', 'drbrain@segment7.net'
-  p.rubyforge_name = 'seattlerb'
   p.summary = 'Tinderbox says, "I\'m gonna light you on fire."'
   p.description = p.paragraphs_of('README.txt', 2..5).join("\n\n")
   p.url = p.paragraphs_of('README.txt', 0)[2]
